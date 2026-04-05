@@ -1,14 +1,13 @@
 {
   "name": "event-booking-system",
-  "version": "1.0.0",
-  "description": "Advanced Event Booking System with seat selection, concurrency control, and QR tickets",
+  "version": "2.0.0",
+  "description": "Advanced Event & Salon Booking System with seat selection, concurrency control, and QR tickets",
   "main": "backend/server.js",
   "scripts": {
     "start": "node backend/server.js",
-    "start:backend": "node backend/server.js",
     "dev": "node backend/server.js"
   },
-  "keywords": ["events", "booking", "tickets", "seats"],
+  "keywords": ["events", "booking", "tickets", "seats", "salon", "spa"],
   "author": "",
   "license": "MIT",
   "dependencies": {
