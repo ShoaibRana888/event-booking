@@ -9,31 +9,56 @@
 const { initDatabase, getDb, selectOne, saveDatabase } = require('./database');
 const { v4: uuidv4 } = require('uuid');
 
+// Build (or rebuild) the National Stadium as a center-court arena: four stands
+// wrapping the court — N/S along the sidelines, E/W behind the baskets — with
+// courtside rows priced VIP, mid rows Premium, and upper rows Standard.
+// Row labels are side-prefixed (N1..N5, E1..E5, …) so the frontend can lay the
+// stands out around the court. Safe to re-run: skips if already arena-shaped.
+function ensureStadiumArena(db) {
+  let venue = selectOne(`SELECT * FROM venues WHERE name = ?`, ['National Stadium']);
+  if (!venue) {
+    const id = uuidv4();
+    db.run(`INSERT INTO venues (id, name, address, city, capacity, rows, seats_per_row) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [id, 'National Stadium', '1 Stadium Road', 'Karachi', 320, 5, 20]);
+    venue = selectOne(`SELECT * FROM venues WHERE id = ?`, [id]);
+    console.log('Created National Stadium venue');
+  }
+
+  // Already arena-shaped? (courtside seat N1 exists)
+  if (selectOne(`SELECT id FROM seats WHERE venue_id = ? AND row_label = 'N1'`, [venue.id])) return venue;
+
+  // Replace any existing (theater-style) seats with the arena layout.
+  db.run(`DELETE FROM seat_locks WHERE seat_id IN (SELECT id FROM seats WHERE venue_id = ?)`, [venue.id]);
+  db.run(`DELETE FROM seats WHERE venue_id = ?`, [venue.id]);
+
+  const sides = [
+    { prefix: 'N', depth: 5, seats: 20 }, // sideline stand (long)
+    { prefix: 'S', depth: 5, seats: 20 }, // sideline stand (long)
+    { prefix: 'E', depth: 5, seats: 12 }, // baseline stand (behind basket)
+    { prefix: 'W', depth: 5, seats: 12 }, // baseline stand (behind basket)
+  ];
+  for (const side of sides) {
+    for (let d = 1; d <= side.depth; d++) {
+      let tier = 'standard';        // upper rows
+      if (d === 1) tier = 'vip';    // courtside
+      else if (d <= 3) tier = 'premium';
+      for (let s = 1; s <= side.seats; s++) {
+        db.run(`INSERT INTO seats (id, venue_id, row_label, seat_number, tier) VALUES (?, ?, ?, ?, ?)`,
+          [uuidv4(), venue.id, `${side.prefix}${d}`, s, tier]);
+      }
+    }
+  }
+  db.run(`UPDATE venues SET capacity = 320, rows = 5, seats_per_row = 20 WHERE id = ?`, [venue.id]);
+  console.log('Built National Stadium arena layout (320 seats)');
+  return venue;
+}
+
 async function main() {
   await initDatabase();
   const db = getDb();
 
-  // ── Ensure a National Stadium venue exists (with seats) ────────────────────
-  let stadium = selectOne(`SELECT * FROM venues WHERE name = ?`, ['National Stadium']);
-  if (!stadium) {
-    const stadiumId = uuidv4();
-    const rows = 26, seatsPerRow = 30; // 780 seats across the stands
-    db.run(`INSERT INTO venues (id, name, address, city, capacity, rows, seats_per_row) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [stadiumId, 'National Stadium', '1 Stadium Road', 'Karachi', rows * seatsPerRow, rows, seatsPerRow]);
-
-    const rowLabels = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
-    for (let r = 0; r < rows; r++) {
-      for (let s = 1; s <= seatsPerRow; s++) {
-        let tier = 'standard';        // General stands
-        if (r < 2) tier = 'vip';      // VIP boxes
-        else if (r < 6) tier = 'premium'; // Premium enclosure
-        db.run(`INSERT INTO seats (id, venue_id, row_label, seat_number, tier) VALUES (?, ?, ?, ?, ?)`,
-          [uuidv4(), stadiumId, rowLabels[r], s, tier]);
-      }
-    }
-    stadium = selectOne(`SELECT * FROM venues WHERE id = ?`, [stadiumId]);
-    console.log('Created National Stadium venue (780 seats)');
-  }
+  // ── Ensure a National Stadium center-court arena exists ────────────────────
+  const stadium = ensureStadiumArena(db);
 
   const venueByName = (name) => selectOne(`SELECT id FROM venues WHERE name = ?`, [name]);
   const grandHall = venueByName('Grand Concert Hall');
@@ -48,9 +73,12 @@ async function main() {
     { venue: grandHall, name: 'Electronic Dreams Festival', description: 'Top DJs, incredible light shows, and an unforgettable atmosphere.', category: 'Festival', daysFromNow: 20, base_price: 95, vip_price: 300, premium_price: 175 },
     { venue: grandHall, name: 'Jazz & Blues Evening', description: 'Smooth jazz and soulful blues performed by Grammy winners.', category: 'Concert', daysFromNow: 15, base_price: 65, vip_price: 180, premium_price: 110 },
     { venue: arena, name: 'NBA Finals Watch Party', description: 'Watch the big game on giant screens with fellow fans!', category: 'Sports', daysFromNow: 18, base_price: 25, vip_price: 75, premium_price: 45 },
-    // Stadium ticket booking event
-    { venue: stadium, name: 'Champions League Final 2026', description: 'Book your seat in the stands for the biggest night in club football — live at the National Stadium.', category: 'Sports', daysFromNow: 25, base_price: 150, vip_price: 500, premium_price: 300 },
+    // Stadium ticket booking event — center-court basketball arena
+    { venue: stadium, name: 'Pro Basketball Championship', description: 'Pick your seat right around the court — from courtside VIP to the upper stands — for the championship finals at the National Stadium.', category: 'Sports', daysFromNow: 25, base_price: 150, vip_price: 500, premium_price: 300 },
   ];
+
+  // Migrate the earlier football-themed stadium event (if present) to the arena.
+  db.run(`UPDATE events SET name = 'Pro Basketball Championship', description = 'Pick your seat right around the court — from courtside VIP to the upper stands — for the championship finals at the National Stadium.' WHERE name = 'Champions League Final 2026'`);
 
   let added = 0;
   for (const e of events) {
