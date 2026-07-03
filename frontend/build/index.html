@@ -663,9 +663,70 @@ function SalonConfirmation({bookingId,setPage}){
 }
 
 // ──────────────────────────────────────────────
-// ADMIN (unchanged)
+// ADMIN
 // ──────────────────────────────────────────────
-function Admin({setPage}){const[stats,setStats]=useState(null);const[loading,setLoading]=useState(true);const[tab,setTab]=useState('overview');useEffect(()=>{fetchStats()},[]);const fetchStats=async()=>{setLoading(true);const data=await fetch(`${API}/api/admin/stats`).then(r=>r.json());setStats(data);setLoading(false)};const getColor=(cat)=>({Concert:'#FF6B6B',Theater:'#4ECDC4',Comedy:'#FFE66D',Sports:'#95E1D3'}[cat]||'#6366f1');if(loading)return<div className="loading"><div className="spinner"></div></div>;return(<div className="admin"><header className="admin-h"><div><h1>Admin Dashboard</h1><p>Monitor sales & bookings</p></div><button className="refresh" onClick={fetchStats}>🔄 Refresh</button></header><div className="tabs"><button className={tab==='overview'?'active':''} onClick={()=>setTab('overview')}>Overview</button><button className={tab==='events'?'active':''} onClick={()=>setTab('events')}>Events</button><button className={tab==='bookings'?'active':''} onClick={()=>setTab('bookings')}>Bookings</button></div>{tab==='overview'&&(<><div className="stats-g"><div className="stat-c" style={{'--accent':'#10B981'}}><div className="stat-i">💰</div><div className="stat-co"><span className="stat-t">Revenue</span><span className="stat-v">${stats?.totalRevenue?.toLocaleString()||0}</span></div></div><div className="stat-c" style={{'--accent':'#6366F1'}}><div className="stat-i">🎫</div><div className="stat-co"><span className="stat-t">Bookings</span><span className="stat-v">{stats?.totalBookings||0}</span></div></div><div className="stat-c" style={{'--accent':'#F59E0B'}}><div className="stat-i">🎪</div><div className="stat-co"><span className="stat-t">Events</span><span className="stat-v">{stats?.totalEvents||0}</span></div></div><div className="stat-c" style={{'--accent':'#EC4899'}}><div className="stat-i">📅</div><div className="stat-co"><span className="stat-t">Upcoming</span><span className="stat-v">{stats?.upcomingEvents||0}</span></div></div></div><div className="charts"><div className="chart-c"><h3>Revenue by Category</h3><div className="cat-bars">{stats?.revenueByCategory?.map(c=>{const max=Math.max(...(stats.revenueByCategory?.map(x=>x.revenue||0)||[1]));return(<div key={c.category} className="cat-row"><span className="cat-name">{c.category}</span><div className="bar-c"><div className="bar-f" style={{width:`${((c.revenue||0)/max)*100}%`,background:getColor(c.category)}}></div></div><span className="cat-val">${(c.revenue||0).toLocaleString()}</span></div>)})}</div></div><div className="chart-c"><h3>Recent Bookings</h3><div className="act-list">{stats?.recentBookings?.slice(0,5).map(b=>(<div key={b.id} className="act-item"><div className="act-ic" style={{background:getColor(b.category)}}>🎫</div><div className="act-co"><span className="act-ti">{b.event_name}</span><span className="act-me">{b.user_name} • ${b.total_amount}</span></div><span className="act-time">{new Date(b.created_at).toLocaleDateString()}</span></div>))}{!stats?.recentBookings?.length&&<p className="no-data">No bookings yet</p>}</div></div></div></>)}{tab==='events'&&(<div className="table-c"><table className="table"><thead><tr><th>Event</th><th>Date</th><th>Category</th><th>Sold</th><th>Revenue</th><th>Occupancy</th></tr></thead><tbody>{stats?.eventsSales?.map(e=>{const occ=e.total_seats>0?Math.round((e.seats_sold/e.total_seats)*100):0;return(<tr key={e.id}><td>{e.name}</td><td>{new Date(e.date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</td><td><span className="cat-badge" style={{background:getColor(e.category)}}>{e.category}</span></td><td>{e.seats_sold} / {e.total_seats}</td><td className="rev-cell">${(e.total_revenue||0).toLocaleString()}</td><td><div className="occ-bar"><div><div className="occ-fill" style={{width:`${occ}%`,background:occ>75?'#10B981':occ>50?'#F59E0B':'#EF4444'}}></div></div><span>{occ}%</span></div></td></tr>)})}</tbody></table></div>)}{tab==='bookings'&&(<div className="table-c"><table className="table"><thead><tr><th>ID</th><th>Customer</th><th>Event</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead><tbody>{stats?.recentBookings?.map(b=>(<tr key={b.id}><td className="id-cell"><code>{b.id.slice(0,8).toUpperCase()}</code></td><td><div className="cust-cell"><span className="cust-name">{b.user_name}</span><span className="cust-email">{b.user_email}</span></div></td><td>{b.event_name}</td><td className="amt-cell">${b.total_amount.toFixed(2)}</td><td><span className={`status-b ${b.status}`}>{b.status}</span></td><td>{new Date(b.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}</td></tr>))}</tbody></table></div>)}</div>)}
+const selectStyle={width:'100%',padding:'.75rem 1rem',background:'var(--bg3)',border:'1px solid var(--border)',borderRadius:'8px',color:'var(--text)',fontSize:'.95rem',marginBottom:'.75rem'};
+
+function CreateEventForm({onCreated}){
+  const[venues,setVenues]=useState([]);
+  const[form,setForm]=useState({venueId:'',name:'',description:'',category:'Concert',date:'',basePrice:'',vipPrice:'',premiumPrice:''});
+  const[saving,setSaving]=useState(false);
+  const[error,setError]=useState(null);
+  const[success,setSuccess]=useState(null);
+  useEffect(()=>{fetch(`${API}/api/venues`).then(r=>r.json()).then(v=>{setVenues(v);if(v[0])setForm(f=>({...f,venueId:v[0].id}))}).catch(()=>{})},[]);
+  const set=(k)=>(e)=>setForm(f=>({...f,[k]:e.target.value}));
+  const submit=async()=>{
+    if(!form.venueId||!form.name||!form.category||!form.date||form.basePrice===''){setError('Please fill all required fields (venue, name, category, date, base price)');return;}
+    setSaving(true);setError(null);setSuccess(null);
+    try{
+      const res=await fetch(`${API}/api/admin/events`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+        venueId:form.venueId,name:form.name,description:form.description,category:form.category,
+        date:new Date(form.date).toISOString(),
+        basePrice:parseFloat(form.basePrice),
+        vipPrice:form.vipPrice?parseFloat(form.vipPrice):null,
+        premiumPrice:form.premiumPrice?parseFloat(form.premiumPrice):null
+      })});
+      const data=await res.json();
+      if(!res.ok){setError(data.error||'Failed to create event');setSaving(false);return;}
+      setSuccess(`"${form.name}" created successfully!`);
+      setForm(f=>({...f,name:'',description:'',date:'',basePrice:'',vipPrice:'',premiumPrice:''}));
+      setSaving(false);
+      if(onCreated)onCreated();
+    }catch{setError('Failed to create event');setSaving(false);}
+  };
+  return(
+    <div className="chart-c" style={{maxWidth:'640px'}}>
+      <h3>Create New Event</h3>
+      {error&&<div className="err-banner">{error}<button onClick={()=>setError(null)}>×</button></div>}
+      {success&&<div className="lock-t" style={{color:'var(--ok)',background:'rgba(16,185,129,.15)'}}>✅ {success}</div>}
+      <div className="form">
+        <h4>Venue *</h4>
+        <select style={selectStyle} value={form.venueId} onChange={set('venueId')}>
+          {venues.map(v=><option key={v.id} value={v.id}>{v.name} — {v.city} ({v.capacity} seats)</option>)}
+        </select>
+        <h4>Event Name *</h4>
+        <input placeholder="e.g. Champions League Final" value={form.name} onChange={set('name')}/>
+        <h4>Description</h4>
+        <input placeholder="Short description" value={form.description} onChange={set('description')}/>
+        <h4>Category *</h4>
+        <select style={selectStyle} value={form.category} onChange={set('category')}>
+          {['Concert','Theater','Comedy','Sports','Festival','Other'].map(c=><option key={c} value={c}>{c}</option>)}
+        </select>
+        <h4>Date & Time *</h4>
+        <input type="datetime-local" value={form.date} onChange={set('date')}/>
+        <h4>Standard Price ($) *</h4>
+        <input type="number" min="0" placeholder="e.g. 50" value={form.basePrice} onChange={set('basePrice')}/>
+        <h4>Premium Price ($)</h4>
+        <input type="number" min="0" placeholder="Optional" value={form.premiumPrice} onChange={set('premiumPrice')}/>
+        <h4>VIP Price ($)</h4>
+        <input type="number" min="0" placeholder="Optional" value={form.vipPrice} onChange={set('vipPrice')}/>
+      </div>
+      <button className="btn" disabled={saving} onClick={submit}>{saving?'Creating...':'＋ Create Event'}</button>
+    </div>
+  );
+}
+
+function Admin({setPage}){const[stats,setStats]=useState(null);const[loading,setLoading]=useState(true);const[tab,setTab]=useState('overview');useEffect(()=>{fetchStats()},[]);const fetchStats=async()=>{setLoading(true);const data=await fetch(`${API}/api/admin/stats`).then(r=>r.json());setStats(data);setLoading(false)};const getColor=(cat)=>({Concert:'#FF6B6B',Theater:'#4ECDC4',Comedy:'#FFE66D',Sports:'#95E1D3'}[cat]||'#6366f1');if(loading)return<div className="loading"><div className="spinner"></div></div>;return(<div className="admin"><header className="admin-h"><div><h1>Admin Dashboard</h1><p>Monitor sales & bookings</p></div><button className="refresh" onClick={fetchStats}>🔄 Refresh</button></header><div className="tabs"><button className={tab==='overview'?'active':''} onClick={()=>setTab('overview')}>Overview</button><button className={tab==='events'?'active':''} onClick={()=>setTab('events')}>Events</button><button className={tab==='bookings'?'active':''} onClick={()=>setTab('bookings')}>Bookings</button><button className={tab==='create'?'active':''} onClick={()=>setTab('create')}>＋ Create Event</button></div>{tab==='overview'&&(<><div className="stats-g"><div className="stat-c" style={{'--accent':'#10B981'}}><div className="stat-i">💰</div><div className="stat-co"><span className="stat-t">Revenue</span><span className="stat-v">${stats?.totalRevenue?.toLocaleString()||0}</span></div></div><div className="stat-c" style={{'--accent':'#6366F1'}}><div className="stat-i">🎫</div><div className="stat-co"><span className="stat-t">Bookings</span><span className="stat-v">{stats?.totalBookings||0}</span></div></div><div className="stat-c" style={{'--accent':'#F59E0B'}}><div className="stat-i">🎪</div><div className="stat-co"><span className="stat-t">Events</span><span className="stat-v">{stats?.totalEvents||0}</span></div></div><div className="stat-c" style={{'--accent':'#EC4899'}}><div className="stat-i">📅</div><div className="stat-co"><span className="stat-t">Upcoming</span><span className="stat-v">{stats?.upcomingEvents||0}</span></div></div></div><div className="charts"><div className="chart-c"><h3>Revenue by Category</h3><div className="cat-bars">{stats?.revenueByCategory?.map(c=>{const max=Math.max(...(stats.revenueByCategory?.map(x=>x.revenue||0)||[1]));return(<div key={c.category} className="cat-row"><span className="cat-name">{c.category}</span><div className="bar-c"><div className="bar-f" style={{width:`${((c.revenue||0)/max)*100}%`,background:getColor(c.category)}}></div></div><span className="cat-val">${(c.revenue||0).toLocaleString()}</span></div>)})}</div></div><div className="chart-c"><h3>Recent Bookings</h3><div className="act-list">{stats?.recentBookings?.slice(0,5).map(b=>(<div key={b.id} className="act-item"><div className="act-ic" style={{background:getColor(b.category)}}>🎫</div><div className="act-co"><span className="act-ti">{b.event_name}</span><span className="act-me">{b.user_name} • ${b.total_amount}</span></div><span className="act-time">{new Date(b.created_at).toLocaleDateString()}</span></div>))}{!stats?.recentBookings?.length&&<p className="no-data">No bookings yet</p>}</div></div></div></>)}{tab==='events'&&(<div className="table-c"><table className="table"><thead><tr><th>Event</th><th>Date</th><th>Category</th><th>Sold</th><th>Revenue</th><th>Occupancy</th></tr></thead><tbody>{stats?.eventsSales?.map(e=>{const occ=e.total_seats>0?Math.round((e.seats_sold/e.total_seats)*100):0;return(<tr key={e.id}><td>{e.name}</td><td>{new Date(e.date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</td><td><span className="cat-badge" style={{background:getColor(e.category)}}>{e.category}</span></td><td>{e.seats_sold} / {e.total_seats}</td><td className="rev-cell">${(e.total_revenue||0).toLocaleString()}</td><td><div className="occ-bar"><div><div className="occ-fill" style={{width:`${occ}%`,background:occ>75?'#10B981':occ>50?'#F59E0B':'#EF4444'}}></div></div><span>{occ}%</span></div></td></tr>)})}</tbody></table></div>)}{tab==='bookings'&&(<div className="table-c"><table className="table"><thead><tr><th>ID</th><th>Customer</th><th>Event</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead><tbody>{stats?.recentBookings?.map(b=>(<tr key={b.id}><td className="id-cell"><code>{b.id.slice(0,8).toUpperCase()}</code></td><td><div className="cust-cell"><span className="cust-name">{b.user_name}</span><span className="cust-email">{b.user_email}</span></div></td><td>{b.event_name}</td><td className="amt-cell">${b.total_amount.toFixed(2)}</td><td><span className={`status-b ${b.status}`}>{b.status}</span></td><td>{new Date(b.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}</td></tr>))}</tbody></table></div>)}{tab==='create'&&(<CreateEventForm onCreated={fetchStats}/>)}</div>)}
 
 function Footer(){return(<footer className="footer"><div className="footer-c"><p>© 2026 EVENTIX</p><div className="footer-l"><span>Terms</span><span>Privacy</span><span>Support</span></div></div></footer>)}
 

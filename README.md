@@ -1,98 +1,108 @@
-# 🎫 EVENTIX - Advanced Event Booking System
+# 🎫 EVENTIX — Advanced Event Booking System
 
-A full-stack event booking system with seat selection, real-time concurrency control, payment simulation, and QR ticket generation.
+**Full-stack event booking system with interactive seat selection, real-time concurrency control, payment simulation, and QR ticket generation.**
 
-## ✨ Features
+[![Live Demo](https://img.shields.io/badge/demo-live-f97316?style=for-the-badge)](https://event-booking-three-sandy.vercel.app)
 
-### Customer Features
-- **Browse Events** - Filter by category, search by name/venue/city
-- **Interactive Seat Selection** - Visual seat map with tier-based pricing (VIP, Premium, Standard)
-- **Real-time Seat Locking** - Prevents double-booking with automatic lock expiration
-- **Secure Checkout** - Simulated payment processing
-- **QR Tickets** - Digital tickets with scannable QR codes
+[View Live Site](https://event-booking-three-sandy.vercel.app)
 
-### Admin Features
-- **Analytics Dashboard** - Revenue tracking, booking statistics
-- **Revenue by Category** - Visual breakdown of sales
-- **Event Performance** - Occupancy rates, tickets sold
-- **Recent Bookings** - Live feed of new bookings
+<!--
+Desktop screenshots, 1440x900 (16:10), PNG, cropped to the app (no browser chrome).
+-->
 
-## 🏗️ Technical Architecture
+| | |
+|---|---|
+| **Interactive seat map** | ![Seat map](./screenshots/seat-map.png) |
+| **Admin analytics dashboard** | ![Admin dashboard](./screenshots/admin-dashboard.png) |
 
-### Backend (Node.js + Express)
-- **Database**: SQLite (sql.js) with proper schema design
-- **Concurrency Control**: Row-level seat locking with automatic expiration
-- **Race Condition Handling**: Transaction-safe seat reservation
-- **QR Generation**: Server-side QR code creation
+## Overview
 
-### Database Schema
-- venues - Venue info with seating configuration
-- events - Event details with tiered pricing
-- seats - Individual seats with tier assignments
-- seat_locks - Temporary reservations (expires after 10 min)
-- bookings - Customer bookings
-- booking_seats - Junction table for booking-seat relationships
-- payments - Payment transaction records
+EVENTIX lets customers browse events, pick seats on a visual, tier-priced seat map, and check out — all protected against double-booking with real-time seat locking. It also includes stadium-scale ticketing and a full salon & spa appointment booking flow. Admins get an analytics dashboard covering revenue, occupancy, and booking activity, and can create new events directly from the dashboard.
 
-## 🚀 Getting Started
+## Features
 
-```bash
-cd event-booking
-npm install
-npm start
-```
+### Customer
 
-Open http://localhost:3001
+- Browse events — filter by category, search by name/venue/city
+- Interactive seat selection with tier-based pricing (VIP, Premium, Standard)
+- Stadium ticketing — book seats across VIP boxes, premium enclosure, and general stands at a full-scale venue
+- Real-time seat locking that prevents double-booking, with automatic lock expiration
+- Simulated secure checkout
+- Digital QR tickets
 
-## 📡 API Endpoints
+### Salon & Spa
 
-### Events
-- GET /api/events - List events (with filters)
-- GET /api/events/:id - Get event details
-- GET /api/categories - List categories
-
-### Seats
-- GET /api/events/:id/seats - Get seats with availability
-- POST /api/events/:id/seats/lock - Lock seats (10 min)
-- POST /api/events/:id/seats/release - Release locked seats
-
-### Bookings
-- POST /api/bookings - Create booking
-- GET /api/bookings/:id - Get booking details
-
-### Payments
-- POST /api/payments - Process payment (simulated)
+- Browse salon outlets and services (hair, skincare, nails, wellness)
+- Pick an outlet, date, time slot, and chair, then book and pay
+- Same real-time seat/slot locking to prevent double-booking
+- QR appointment confirmation
 
 ### Admin
-- GET /api/admin/stats - Dashboard statistics
 
-## 🔒 Concurrency Control
+- Analytics dashboard — revenue tracking, booking statistics
+- Create new events directly from the dashboard (venue, category, date, tiered pricing)
+- Revenue by category, visualized
+- Event performance — occupancy rates, tickets sold
+- Live feed of recent bookings
 
-1. Session-based Locking - Each user gets a unique session
-2. Timed Locks - Seats auto-release after 10 minutes
-3. Conflict Detection - Real-time availability checking
-4. Automatic Cleanup - Background job removes expired locks
+## Technical architecture
 
-## 📦 Project Structure
+**Backend (Node.js + Express)**
+
+- Database: SQLite (via `sql.js`)
+- Concurrency control: row-level seat locking with automatic expiration
+- Race-condition handling: transaction-safe seat reservation
+- Server-side QR code generation
+
+**Database schema:** `venues`, `events`, `seats`, `seat_locks` (expire after 10 min), `bookings`, `booking_seats`, `payments`, plus the salon tables `salons`, `salon_outlets`, `salon_services`, `salon_seats`, `salon_seat_locks`, `salon_bookings`
+
+## API endpoints
+
+| Area | Endpoints |
+|---|---|
+| Events | `GET /api/events`, `GET /api/events/:id`, `GET /api/categories` |
+| Seats | `GET /api/events/:id/seats`, `POST /api/events/:id/seats/lock`, `POST /api/events/:id/seats/release` |
+| Bookings | `POST /api/bookings`, `GET /api/bookings/:id` |
+| Payments | `POST /api/payments` (simulated) |
+| Venues | `GET /api/venues` |
+| Admin | `GET /api/admin/stats`, `GET /api/admin/bookings`, `POST /api/admin/events` |
+| Salon | `GET /api/salons`, `GET /api/salons/:id`, `GET /api/salons/outlets/:id`, `GET /api/salons/outlets/:id/slots`, `GET /api/salons/outlets/:id/availability`, `POST /api/salons/outlets/:id/lock`, `POST /api/salons/outlets/:id/release`, `POST /api/salons/bookings`, `GET /api/salons/bookings/:id`, `POST /api/salons/payments` |
+
+## Concurrency control
+
+1. Session-based locking — each user gets a unique session
+2. Timed locks — seats auto-release after 10 minutes
+3. Conflict detection — real-time availability checking
+4. Automatic cleanup — background job removes expired locks
+
+## Project structure
 
 ```
 event-booking/
 ├── backend/
-│   ├── server.js      # Express API server (18KB)
-│   └── database.js    # SQLite database layer (9KB)
+│   ├── server.js          # Express API server
+│   ├── database.js        # SQLite database layer + seed data
+│   └── refresh-events.js  # Utility: refresh upcoming events + stadium venue
 ├── frontend/
 │   └── build/
-│       └── index.html # Single-file React app (no build required)
-├── package.json
-└── README.md
+│       └── index.html     # Single-file React app (no build required)
+└── package.json
 ```
 
-## 🧪 Sample Data (Auto-seeded on first run)
+## Getting started
 
-- 3 Venues: Grand Concert Hall (NY), Downtown Theater (LA), Metro Arena (Chicago)
-- 6 Events: Rock Symphony, Hamilton, Comedy Festival, NBA Watch Party, Electronic Dreams, Jazz Evening
-- Seats: VIP (front rows), Premium (middle), Standard (back)
+```bash
+git clone https://github.com/ShoaibRana888/event-booking.git && cd event-booking
+npm install
+npm start   # → http://localhost:3001
+```
 
----
+Sample data (venues, events, and a salon with outlets & services) is auto-seeded on first run. To refresh the catalog with a fresh slate of upcoming events and add the National Stadium venue, run:
 
-Built with Node.js, Express, SQLite, and React
+```bash
+node backend/refresh-events.js
+```
+
+## Contact
+
+**Shoaib Rana** — [shoaib.rana888@gmail.com](mailto:shoaib.rana888@gmail.com) · [Portfolio](https://portfolio-pied-two-34.vercel.app/) · [GitHub](https://github.com/ShoaibRana888)

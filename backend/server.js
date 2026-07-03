@@ -254,6 +254,25 @@ app.get('/api/venues', async (req, res) => {
   }
 });
 
+// Admin: create a new event
+app.post('/api/admin/events', async (req, res) => {
+  const { venueId, name, description, category, date, basePrice, vipPrice, premiumPrice } = req.body;
+  if (!venueId || !name || !category || !date || basePrice === undefined || basePrice === null || basePrice === '') {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+  try {
+    const venue = selectOne(`SELECT id FROM venues WHERE id = ?`, [venueId]);
+    if (!venue) return res.status(404).json({ error: 'Venue not found' });
+    const id = uuidv4();
+    runQuery(`INSERT INTO events (id, venue_id, name, description, category, date, base_price, vip_price, premium_price) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, venueId, name, description || null, category, date, basePrice, vipPrice || null, premiumPrice || null]);
+    saveDatabase();
+    res.json({ id, success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to create event' });
+  }
+});
+
 // ===========================================
 // SALON API
 // ===========================================
